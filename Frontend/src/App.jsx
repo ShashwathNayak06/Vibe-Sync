@@ -1,12 +1,23 @@
-import './App.css'
+import { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
+import './App.css';
+import LandingView from './LandingView/LandingView';
+import HostView from './HostView/HostView';
+import GuestView from './GuestView/GuestView';
+
+const socket = io('http://localhost:3001');
 
 function App() {
+  const [view, setView] = useState('landing');
+  const [roomCode, setRoomCode] = useState('');
 
   return (
-    <>
-      
-    </>
-  )
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      {view === 'landing' && <LandingView setView={setView} setRoomCode={setRoomCode} />}
+      {view === 'host' && <HostView roomCode={roomCode} socket={socket} setView={setView} />}
+      {view === 'guest' && <GuestView roomCode={roomCode} socket={socket} setView={setView} />}
+    </div>
+  );
 }
 
-export default App
+export default App;

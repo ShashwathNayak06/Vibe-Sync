@@ -1,0 +1,200 @@
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, ThumbsUp, ThumbsDown, Music, ArrowLeft } from 'lucide-react';
+
+function GuestView({ roomCode, socket, setView }) {
+  const [queue, setQueue] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [activeTab, setActiveTab] = useState('queue'); // 'queue' | 'search'
+
+  useEffect(() => {
+    socket.emit('join_room', roomCode);
+
+    socket.on('queue_updated', (updatedQueue) => {
+      setQueue(updatedQueue);
+    });
+
+    return () => {
+      socket.off('queue_updated');
+    };
+  }, [roomCode, socket]);
+
+  const performSearch = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const res = await fetch(`http://localhost:3001/api/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data.results) {
+        setSearchResults(data.results);
+      }
+    } catch (err) {
+      console.error("Search failed:", err);
+    }
+    setIsSearching(false);
+  };
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      performSearch(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    performSearch(searchQuery);
+  };
+
+  const handleAddSong = (song) => {
+    socket.emit('add_song', { roomCode, song });
+    setActiveTab('queue');
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleVote = (queueId, voteValue) => {
+    socket.emit('vote_song', { roomCode, queueId, vote: voteValue });
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-50 relative overflow-hidden font-sans">
+      {/* Background elements */}
+      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-fuchsia-200 rounded-full mix-blend-multiply filter blur-[100px] opacity-40"></div>
+      <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-[100px] opacity-40"></div>
+      
+      {/* Header */}
+      <header className="bg-white/70 backdrop-blur-xl border-b border-white shadow-sm sticky top-0 z-20 px-6 py-4 flex items-center justify-between">
+         <div className="flex items-center gap-3">
+             <button onClick={() => setView('landing')} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                 <ArrowLeft size={20} className="text-slate-600" />
+             </button>
+             <div>
+                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Room</p>
+                 <h1 className="text-2xl font-black text-slate-800">{roomCode}</h1>
+             </div>
+         </div>
+         <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner">
+             <button 
+                onClick={() => setActiveTab('queue')}
+                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'queue' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+                 Queue
+             </button>
+             <button 
+                onClick={() => setActiveTab('search')}
+                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'search' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+             >
+                 Add Music
+             </button>
+         </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 p-6 relative z-10 max-w-2xl mx-auto w-full pb-20">
+         
+         {activeTab === 'search' && (
+             <div className="space-y-6 animate-in fade-in duration-300">
+                 <form onSubmit={handleSearch} className="relative">
+                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                     <input 
+                         type="text" 
+                         value={searchQuery}
+                         onChange={e => setSearchQuery(e.target.value)}
+                         placeholder="Search for a song or artist..."
+                         className="w-full bg-white border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-lg font-medium focus:outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-500/10 transition-all shadow-sm"
+                     />
+                 </form>
+
+                 <div className="space-y-4">
+                     {isSearching ? (
+                         <div className="text-center py-10 text-slate-400 font-medium animate-pulse">Searching YouTube...</div>
+                     ) : searchResults.length > 0 ? (
+                         searchResults.map(song => (
+                             <div key={song.videoId} className="flex gap-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all group">
+                                 <img src={song.thumbnailUrl} className="w-24 h-24 object-cover rounded-xl" />
+                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                     <h3 className="font-bold text-slate-900 text-lg truncate mb-1">{song.title}</h3>
+                                     <p className="text-slate-500 text-sm truncate">{song.channelName}</p>
+                                 </div>
+                                 <div className="flex items-center justify-center pl-2">
+                                     <button 
+                                        onClick={() => handleAddSong(song)}
+                                        className="w-12 h-12 bg-slate-50 hover:bg-fuchsia-500 group-hover:text-white text-slate-400 rounded-full flex items-center justify-center transition-all shadow-sm"
+                                     >
+                                         <Plus size={24} />
+                                     </button>
+                                 </div>
+                             </div>
+                         ))
+                     ) : searchQuery && !isSearching ? (
+                         <div className="text-center py-10 text-slate-400 font-medium">No results found.</div>
+                     ) : (
+                         <div className="text-center py-20 flex flex-col items-center justify-center text-slate-300">
+                            <Music size={48} className="mb-4 opacity-50" />
+                            <p className="font-medium text-lg">Search for a song to add to the party.</p>
+                         </div>
+                     )}
+                 </div>
+             </div>
+         )}
+
+         {activeTab === 'queue' && (
+             <div className="space-y-4 animate-in fade-in duration-300">
+                 {queue.length === 0 ? (
+                     <div className="text-center py-20 flex flex-col items-center justify-center text-slate-400 bg-white/50 backdrop-blur-sm rounded-3xl border border-white">
+                         <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                             <Music size={32} className="text-slate-300" />
+                         </div>
+                         <h3 className="text-xl font-bold text-slate-800 mb-2">The queue is empty</h3>
+                         <p className="mb-6">Be the first to add a song!</p>
+                         <button 
+                            onClick={() => setActiveTab('search')}
+                            className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition-colors"
+                         >
+                             Add Music
+                         </button>
+                     </div>
+                 ) : (
+                     <div className="space-y-3">
+                         {queue.map((song, idx) => (
+                             <div key={song.queueId} className="flex gap-4 p-3 bg-white rounded-2xl shadow-sm border border-slate-100 items-center">
+                                 <div className="font-black text-slate-300 w-6 text-center">{idx + 1}</div>
+                                 <img src={song.thumbnailUrl} className="w-16 h-16 object-cover rounded-xl shadow-sm" />
+                                 <div className="flex-1 min-w-0">
+                                     <h3 className="font-bold text-slate-900 text-base truncate">{song.title}</h3>
+                                     <p className="text-slate-500 text-xs truncate">{song.channelName}</p>
+                                 </div>
+                                 <div className="flex flex-col gap-1 items-center bg-slate-50 border border-slate-100 p-2 rounded-xl shadow-inner">
+                                     <button 
+                                        onClick={() => handleVote(song.queueId, 1)}
+                                        className={`transition-colors p-1 ${song.votedBy?.[socket.id] === 1 ? 'text-green-500 bg-green-100 rounded-full' : 'text-slate-400 hover:text-green-500'}`}
+                                     >
+                                         <ThumbsUp size={18} />
+                                     </button>
+                                     <span className="font-black text-sm text-slate-700">{song.votes}</span>
+                                     <button 
+                                        onClick={() => handleVote(song.queueId, -1)}
+                                        className={`transition-colors p-1 ${song.votedBy?.[socket.id] === -1 ? 'text-red-500 bg-red-100 rounded-full' : 'text-slate-400 hover:text-red-500'}`}
+                                     >
+                                         <ThumbsDown size={18} />
+                                     </button>
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
+                 )}
+             </div>
+         )}
+      </main>
+    </div>
+  );
+}
+
+export default GuestView;

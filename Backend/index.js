@@ -71,30 +71,96 @@ app.get('/api/search', async (req,res) => {
 })
 
 // --- REAL-TIME SOCKET LOGIC ---
+// In-memory store for room queues
+const rooms = {};
+
+const broadcastQueue = (roomCode) => {
+    if (rooms[roomCode]) {
+        // Sort the queue descending by votes
+        rooms[roomCode].queue.sort((a, b) => b.votes - a.votes);
+        io.to(roomCode).emit('queue_updated', rooms[roomCode].queue);
+    }
+};
+
 io.on('connection', (socket) => {
     console.log(`🔌 New device connected: ${socket.id}`);
 
-    // 1. Guest joins a specific room code
+    // 1. Join a specific room code (Host or Guest)
     socket.on('join_room', (roomCode) => {
         socket.join(roomCode);
+        // Initialize room if it doesn't exist
+        if (!rooms[roomCode]) {
+            rooms[roomCode] = { queue: [] };
+        }
         console.log(`📱 User ${socket.id} joined room: ${roomCode}`);
+        // Send current queue to the user who just joined
+        socket.emit('queue_updated', rooms[roomCode].queue);
     });
 
-    // 2. Guest adds a song, tell everyone in the room to update their queue!
+    // 2. Add a song to the room's queue
     socket.on('add_song', (data) => {
         const { roomCode, song } = data;
+        if (!rooms[roomCode]) return;
+        
+        const newSong = {
+            ...song,
+            queueId: Math.random().toString(36).substring(2, 9), // Unique ID in queue
+            votes: 0,
+            votedBy: {} // keep track of socket.id's that voted to prevent multi-voting and allow undo
+        };
+
+        rooms[roomCode].queue.push(newSong);
         console.log(`🎶 Song added to room ${roomCode}: ${song.title}`);
         
-        // Broadcast the new song to everyone in that specific room
-        io.to(roomCode).emit('queue_updated', song);
+        broadcastQueue(roomCode);
+    });
+
+    // 3. Vote on a song
+    socket.on('vote_song', (data) => {
+        const { roomCode, queueId, vote } = data;
+        if (!rooms[roomCode]) return;
+
+        const song = rooms[roomCode].queue.find(s => s.queueId === queueId);
+        if (song) {
+            const currentVote = song.votedBy[socket.id];
+            
+            if (currentVote === vote) {
+                // Undo vote if clicking the same button
+                song.votes -= vote;
+                delete song.votedBy[socket.id];
+            } else if (currentVote) {
+                // Change vote (e.g. from -1 to 1)
+                song.votes = song.votes - currentVote + vote;
+                song.votedBy[socket.id] = vote;
+            } else {
+                // New vote
+                song.votes += vote;
+                song.votedBy[socket.id] = vote;
+            }
+            
+            console.log(`👍 Vote cast in ${roomCode} for ${song.title}: ${song.votes} votes`);
+            broadcastQueue(roomCode);
+        }
+    });
+
+    // 4. Remove a song (Host triggers this when song finishes)
+    socket.on('song_ended', (data) => {
+        const { roomCode, queueId } = data;
+        if (!rooms[roomCode]) return;
+
+        rooms[roomCode].queue = rooms[roomCode].queue.filter(s => s.queueId !== queueId);
+        console.log(`⏭️ Song finished in ${roomCode}, removed from queue.`);
+        broadcastQueue(roomCode);
     });
 
     socket.on('disconnect', () => {
         console.log(`❌ Device disconnected: ${socket.id}`);
+        // Optional: cleanup empty rooms if all users leave
     });
 });
 
-app.listen(PORT, () => {
+// IMPORTANT: use server.listen instead of app.listen to bind Socket.io properly
+server.listen(PORT, () => {
     console.log(`🎵 VibeSync Backend is running on http://localhost:${PORT}`);
     console.log(`Try searching for a song: http://localhost:${PORT}/api/search?q=daft+punk`);
 });
