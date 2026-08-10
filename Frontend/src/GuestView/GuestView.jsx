@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import YouTube from 'react-youtube';
-import { Search, Plus, ThumbsUp, ThumbsDown, Music, ArrowLeft } from 'lucide-react';
+import { Search, Plus, ThumbsUp, ThumbsDown, Music, ArrowLeft, Play, Pause } from 'lucide-react';
 
 function GuestView({ roomCode, socket, setView }) {
   const [queue, setQueue] = useState([]);
@@ -9,6 +9,24 @@ function GuestView({ roomCode, socket, setView }) {
   const [isSearching, setIsSearching] = useState(false);
   const [nowPlaying, setNowPlaying] = useState(null);
   const [activeTab, setActiveTab] = useState('queue'); // 'queue' | 'search'
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playerTarget, setPlayerTarget] = useState(null);
+
+  const onPlayerReady = (event) => {
+    setPlayerTarget(event.target);
+    event.target.playVideo(); // Attempt autoplay
+  };
+
+  const onPlayerStateChange = (event) => {
+    setIsPlaying(event.data === 1); // 1 is playing
+  };
+
+  const togglePlay = () => {
+    if (playerTarget) {
+      if (isPlaying) playerTarget.pauseVideo();
+      else playerTarget.playVideo();
+    }
+  };
 
   useEffect(() => {
     socket.emit('join_room', roomCode);
@@ -206,10 +224,12 @@ function GuestView({ roomCode, socket, setView }) {
       {/* Mini Player for Guest */}
       {nowPlaying && (
         <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 p-4 z-50 flex items-center gap-4 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
-           <div className="hidden">
+           <div className="absolute top-[-9999px] left-[-9999px] opacity-0 pointer-events-none">
               <YouTube 
                 videoId={nowPlaying.videoId} 
-                opts={{ height: '0', width: '0', playerVars: { autoplay: 1 } }} 
+                opts={{ height: '100', width: '100', playerVars: { autoplay: 1 } }} 
+                onReady={onPlayerReady}
+                onStateChange={onPlayerStateChange}
               />
            </div>
            <img src={nowPlaying.thumbnailUrl} className="w-12 h-12 object-cover rounded-md shadow-lg" />
@@ -218,9 +238,12 @@ function GuestView({ roomCode, socket, setView }) {
                <h3 className="font-bold text-white text-sm truncate">{nowPlaying.title}</h3>
                <p className="text-slate-400 text-xs truncate">{nowPlaying.channelName}</p>
            </div>
-           <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center animate-pulse">
-               <Music size={14} className="text-fuchsia-400" />
-           </div>
+           <button 
+               onClick={togglePlay} 
+               className="w-12 h-12 rounded-full bg-fuchsia-500 hover:bg-fuchsia-400 flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
+           >
+               {isPlaying ? <Pause size={20} className="text-white" /> : <Play size={20} className="text-white ml-1" />}
+           </button>
         </div>
       )}
     </div>
