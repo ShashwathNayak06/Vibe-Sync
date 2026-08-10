@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import YouTube from 'react-youtube';
 import { Search, Plus, ThumbsUp, ThumbsDown, Music, ArrowLeft } from 'lucide-react';
 
 function GuestView({ roomCode, socket, setView }) {
@@ -6,17 +7,24 @@ function GuestView({ roomCode, socket, setView }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [nowPlaying, setNowPlaying] = useState(null);
   const [activeTab, setActiveTab] = useState('queue'); // 'queue' | 'search'
 
   useEffect(() => {
     socket.emit('join_room', roomCode);
+    socket.emit('request_state', roomCode);
 
     socket.on('queue_updated', (updatedQueue) => {
       setQueue(updatedQueue);
     });
+    
+    socket.on('now_playing', (song) => {
+      setNowPlaying(song);
+    });
 
     return () => {
       socket.off('queue_updated');
+      socket.off('now_playing');
     };
   }, [roomCode, socket]);
 
@@ -194,6 +202,27 @@ function GuestView({ roomCode, socket, setView }) {
              </div>
          )}
       </main>
+
+      {/* Mini Player for Guest */}
+      {nowPlaying && (
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 p-4 z-50 flex items-center gap-4 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
+           <div className="hidden">
+              <YouTube 
+                videoId={nowPlaying.videoId} 
+                opts={{ height: '0', width: '0', playerVars: { autoplay: 1 } }} 
+              />
+           </div>
+           <img src={nowPlaying.thumbnailUrl} className="w-12 h-12 object-cover rounded-md shadow-lg" />
+           <div className="flex-1 min-w-0">
+               <p className="text-xs font-bold text-fuchsia-400 uppercase tracking-wider mb-0.5">Now Playing</p>
+               <h3 className="font-bold text-white text-sm truncate">{nowPlaying.title}</h3>
+               <p className="text-slate-400 text-xs truncate">{nowPlaying.channelName}</p>
+           </div>
+           <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center animate-pulse">
+               <Music size={14} className="text-fuchsia-400" />
+           </div>
+        </div>
+      )}
     </div>
   );
 }

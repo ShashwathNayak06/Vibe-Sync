@@ -143,14 +143,32 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 4. Remove a song (Host triggers this when song finishes)
+    // 4. Remove a song from queue and broadcast now playing
     socket.on('song_ended', (data) => {
         const { roomCode, queueId } = data;
         if (!rooms[roomCode]) return;
 
         rooms[roomCode].queue = rooms[roomCode].queue.filter(s => s.queueId !== queueId);
-        console.log(`⏭️ Song finished in ${roomCode}, removed from queue.`);
+        console.log(`⏭️ Song removed from queue in ${roomCode}.`);
         broadcastQueue(roomCode);
+    });
+
+    // 5. Sync playback state (Host broadcasts to Guests)
+    socket.on('play_song', (data) => {
+        const { roomCode, song } = data;
+        if (!rooms[roomCode]) return;
+
+        rooms[roomCode].nowPlaying = song;
+        console.log(`▶️ Now playing in ${roomCode}: ${song ? song.title : 'None'}`);
+        // Broadcast to everyone in the room (including guests)
+        io.to(roomCode).emit('now_playing', song);
+    });
+
+    // Send current state to newly joined users
+    socket.on('request_state', (roomCode) => {
+        if (rooms[roomCode]) {
+            socket.emit('now_playing', rooms[roomCode].nowPlaying || null);
+        }
     });
 
     socket.on('disconnect', () => {

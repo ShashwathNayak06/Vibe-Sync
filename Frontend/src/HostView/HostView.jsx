@@ -31,6 +31,10 @@ function HostView({ roomCode, socket, setView }) {
     }
   }, [queue, nowPlaying, roomCode, socket]);
 
+  useEffect(() => {
+    socket.emit('play_song', { roomCode, song: nowPlaying });
+  }, [nowPlaying, roomCode, socket]);
+
   const handleSongEnd = () => setNowPlaying(null);
   const handleSkip = () => setNowPlaying(null);
 
