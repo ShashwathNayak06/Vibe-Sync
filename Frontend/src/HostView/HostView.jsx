@@ -48,7 +48,8 @@ function HostView({ roomCode, socket, setView }) {
 
     setIsSearching(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/search?q=${encodeURIComponent(query)}`);
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const res = await fetch(`${backendUrl}/api/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (data.results) setSearchResults(data.results);
     } catch (err) {

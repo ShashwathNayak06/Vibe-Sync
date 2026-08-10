@@ -5,7 +5,8 @@ import LandingView from './LandingView/LandingView';
 import HostView from './HostView/HostView';
 import GuestView from './GuestView/GuestView';
 
-const socket = io('http://localhost:3001');
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const socket = io(BACKEND_URL);
 
 function App() {
   const [view, setView] = useState('landing');
