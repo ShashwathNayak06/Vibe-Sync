@@ -158,8 +158,12 @@ io.on('connection', (socket) => {
         const { roomCode, song } = data;
         if (!rooms[roomCode]) return;
 
+        if (song) {
+            song.startTime = Date.now(); // Record when the song started playing
+        }
         rooms[roomCode].nowPlaying = song;
         console.log(`▶️ Now playing in ${roomCode}: ${song ? song.title : 'None'}`);
+        
         // Broadcast to everyone in the room (including guests)
         io.to(roomCode).emit('now_playing', song);
     });

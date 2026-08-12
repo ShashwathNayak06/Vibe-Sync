@@ -14,6 +14,15 @@ function GuestView({ roomCode, socket, setView }) {
 
   const onPlayerReady = (event) => {
     setPlayerTarget(event.target);
+    
+    // Auto-sync time if the song has been playing for a while
+    if (nowPlaying && nowPlaying.startTime) {
+      const elapsedSeconds = (Date.now() - nowPlaying.startTime) / 1000;
+      if (elapsedSeconds > 2) {
+        event.target.seekTo(elapsedSeconds, true);
+      }
+    }
+    
     event.target.playVideo(); // Attempt autoplay
   };
 
