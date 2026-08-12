@@ -158,20 +158,36 @@ io.on('connection', (socket) => {
         const { roomCode, song } = data;
         if (!rooms[roomCode]) return;
 
-        if (song) {
-            song.startTime = Date.now(); // Record when the song started playing
-        }
         rooms[roomCode].nowPlaying = song;
+        // Reset playback state on new song
+        rooms[roomCode].playbackState = {
+            isPlaying: true,
+            currentTime: 0,
+            timestamp: Date.now()
+        };
         console.log(`▶️ Now playing in ${roomCode}: ${song ? song.title : 'None'}`);
         
         // Broadcast to everyone in the room (including guests)
         io.to(roomCode).emit('now_playing', song);
     });
 
+    // 6. Continuous playback sync from Host
+    socket.on('host_sync', (data) => {
+        const { roomCode } = data;
+        if (rooms[roomCode]) {
+            rooms[roomCode].playbackState = data;
+            // Broadcast to all guests in the room
+            io.to(roomCode).emit('host_sync', data);
+        }
+    });
+
     // Send current state to newly joined users
     socket.on('request_state', (roomCode) => {
         if (rooms[roomCode]) {
             socket.emit('now_playing', rooms[roomCode].nowPlaying || null);
+            if (rooms[roomCode].playbackState) {
+                socket.emit('host_sync', rooms[roomCode].playbackState);
+            }
         }
     });
 

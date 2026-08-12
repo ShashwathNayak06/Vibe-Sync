@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import YouTube from 'react-youtube';
 import { Search, Plus, ThumbsUp, ThumbsDown, Music, ArrowLeft, Play, Pause } from 'lucide-react';
 
@@ -11,29 +11,51 @@ function GuestView({ roomCode, socket, setView }) {
   const [activeTab, setActiveTab] = useState('queue'); // 'queue' | 'search'
   const [isPlaying, setIsPlaying] = useState(false);
   const [playerTarget, setPlayerTarget] = useState(null);
+  const [hostSync, setHostSync] = useState(null);
+  const guestPaused = useRef(false);
 
   const onPlayerReady = (event) => {
     setPlayerTarget(event.target);
-    
-    // Auto-sync time if the song has been playing for a while
-    if (nowPlaying && nowPlaying.startTime) {
-      const elapsedSeconds = (Date.now() - nowPlaying.startTime) / 1000;
-      if (elapsedSeconds > 2) {
-        event.target.seekTo(elapsedSeconds, true);
-      }
-    }
-    
-    event.target.playVideo(); // Attempt autoplay
+    // Let the host_sync effect handle seeking and playing
   };
 
   const onPlayerStateChange = (event) => {
     setIsPlaying(event.data === 1); // 1 is playing
   };
 
+  useEffect(() => {
+    if (!playerTarget || !hostSync || guestPaused.current) return;
+    
+    const { isPlaying: hostPlaying, currentTime, timestamp } = hostSync;
+    const expectedTime = hostPlaying ? currentTime + (Date.now() - timestamp) / 1000 : currentTime;
+    
+    const guestTime = playerTarget.getCurrentTime();
+    if (Math.abs(guestTime - expectedTime) > 2) {
+      playerTarget.seekTo(expectedTime, true);
+    }
+
+    if (hostPlaying && !isPlaying) {
+      playerTarget.playVideo();
+    } else if (!hostPlaying && isPlaying) {
+      playerTarget.pauseVideo();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hostSync, playerTarget]);
+
   const togglePlay = () => {
     if (playerTarget) {
-      if (isPlaying) playerTarget.pauseVideo();
-      else playerTarget.playVideo();
+      if (isPlaying) {
+         guestPaused.current = true;
+         playerTarget.pauseVideo();
+      } else {
+         guestPaused.current = false;
+         if (hostSync) {
+            const { isPlaying: hostPlaying, currentTime, timestamp } = hostSync;
+            const expectedTime = hostPlaying ? currentTime + (Date.now() - timestamp) / 1000 : currentTime;
+            playerTarget.seekTo(expectedTime, true);
+         }
+         playerTarget.playVideo();
+      }
     }
   };
 
@@ -47,11 +69,18 @@ function GuestView({ roomCode, socket, setView }) {
     
     socket.on('now_playing', (song) => {
       setNowPlaying(song);
+      // Reset guest pause state on a new song so it autosyncs
+      guestPaused.current = false;
+    });
+
+    socket.on('host_sync', (data) => {
+      setHostSync(data);
     });
 
     return () => {
       socket.off('queue_updated');
       socket.off('now_playing');
+      socket.off('host_sync');
     };
   }, [roomCode, socket]);
 

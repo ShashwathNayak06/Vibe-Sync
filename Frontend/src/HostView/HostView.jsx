@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import YouTube from 'react-youtube';
 import { Users, Play, SkipForward, Copy, Check, ArrowLeft, Search, Plus, ThumbsUp, ThumbsDown, Music } from 'lucide-react';
 
@@ -38,6 +38,38 @@ function HostView({ roomCode, socket, setView }) {
 
   const handleSongEnd = () => setNowPlaying(null);
   const handleSkip = () => setNowPlaying(null);
+  
+  const syncInterval = useRef(null);
+  
+  const emitSync = (target, playing) => {
+    if (!target) return;
+    socket.emit('host_sync', {
+        roomCode,
+        isPlaying: playing,
+        currentTime: target.getCurrentTime(),
+        timestamp: Date.now()
+    });
+  };
+
+  const onPlayerReady = (event) => {
+    emitSync(event.target, true);
+  };
+
+  const onPlayerStateChange = (event) => {
+    const playing = event.data === 1;
+    emitSync(event.target, playing);
+
+    if (playing) {
+        clearInterval(syncInterval.current);
+        syncInterval.current = setInterval(() => emitSync(event.target, true), 3000);
+    } else {
+        clearInterval(syncInterval.current);
+    }
+  };
+
+  useEffect(() => {
+    return () => clearInterval(syncInterval.current);
+  }, []);
 
   const copyCode = () => {
     navigator.clipboard.writeText(roomCode);
@@ -103,6 +135,8 @@ function HostView({ roomCode, socket, setView }) {
                 videoId={nowPlaying.videoId} 
                 opts={opts} 
                 onEnd={handleSongEnd}
+                onReady={onPlayerReady}
+                onStateChange={onPlayerStateChange}
                 className="absolute inset-0 w-full h-full"
                 iframeClassName="w-full h-full"
              />
