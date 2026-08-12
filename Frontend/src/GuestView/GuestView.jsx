@@ -26,18 +26,22 @@ function GuestView({ roomCode, socket, setView }) {
   useEffect(() => {
     if (!playerTarget || !hostSync || guestPaused.current) return;
     
-    const { isPlaying: hostPlaying, currentTime, timestamp } = hostSync;
-    const expectedTime = hostPlaying ? currentTime + (Date.now() - timestamp) / 1000 : currentTime;
-    
-    const guestTime = playerTarget.getCurrentTime();
-    if (Math.abs(guestTime - expectedTime) > 2) {
-      playerTarget.seekTo(expectedTime, true);
-    }
+    try {
+      const { isPlaying: hostPlaying, currentTime, timestamp } = hostSync;
+      const expectedTime = hostPlaying ? currentTime + (Date.now() - timestamp) / 1000 : currentTime;
+      
+      const guestTime = playerTarget.getCurrentTime();
+      if (Math.abs(guestTime - expectedTime) > 2) {
+        playerTarget.seekTo(expectedTime, true);
+      }
 
-    if (hostPlaying && !isPlaying) {
-      playerTarget.playVideo();
-    } else if (!hostPlaying && isPlaying) {
-      playerTarget.pauseVideo();
+      if (hostPlaying && !isPlaying) {
+        playerTarget.playVideo();
+      } else if (!hostPlaying && isPlaying) {
+        playerTarget.pauseVideo();
+      }
+    } catch (e) {
+      // player target might be unmounted, safe to ignore
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostSync, playerTarget]);
@@ -69,7 +73,7 @@ function GuestView({ roomCode, socket, setView }) {
     
     socket.on('now_playing', (song) => {
       setNowPlaying(song);
-      // Reset guest pause state on a new song so it autosyncs
+      setPlayerTarget(null); // Reset guest pause state on a new song so it autosyncs
       guestPaused.current = false;
     });
 

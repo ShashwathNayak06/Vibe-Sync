@@ -128,7 +128,7 @@ function HostView({ roomCode, socket, setView }) {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-slate-900 text-white overflow-hidden font-sans">
       {/* Player Section */}
-      <div className="flex-1 flex flex-col relative bg-black">
+      <div className="w-full h-[35vh] md:h-auto md:flex-1 flex flex-col relative bg-black shrink-0">
         {nowPlaying ? (
           <div className="w-full h-full relative">
              <YouTube 
@@ -169,8 +169,8 @@ function HostView({ roomCode, socket, setView }) {
       </div>
 
       {/* Sidebar Section */}
-      <div className="w-full md:w-[450px] bg-slate-800/90 backdrop-blur-xl border-l border-slate-700 flex flex-col shadow-2xl z-10">
-        <div className="p-6 border-b border-slate-700 bg-slate-800/50 relative overflow-hidden">
+      <div className="w-full md:w-[450px] flex-1 bg-slate-800/90 backdrop-blur-xl border-l border-slate-700 flex flex-col shadow-2xl z-10 overflow-hidden">
+        <div className="p-6 border-b border-slate-700 bg-slate-800/50 relative overflow-hidden shrink-0">
           <div className="absolute top-[-50px] right-[-50px] w-32 h-32 bg-fuchsia-500 rounded-full mix-blend-screen filter blur-[50px] opacity-20"></div>
           
           <div className="flex justify-between items-center mb-4">
