@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import YouTube from 'react-youtube';
 import { Search, Plus, ThumbsUp, ThumbsDown, Music, ArrowLeft, Play, Pause } from 'lucide-react';
 
@@ -54,7 +54,7 @@ function GuestView({ roomCode, socket, setView }) {
 
     setIsSearching(true);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:3001`;
       const res = await fetch(`${backendUrl}/api/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (data.results) {

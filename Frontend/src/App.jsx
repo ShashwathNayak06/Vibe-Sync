@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { io } from 'socket.io-client';
 import './App.css';
 import LandingView from './LandingView/LandingView';
 import HostView from './HostView/HostView';
 import GuestView from './GuestView/GuestView';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:3001`;
 const socket = io(BACKEND_URL);
 
 function App() {

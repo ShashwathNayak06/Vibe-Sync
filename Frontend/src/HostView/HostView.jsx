@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import YouTube from 'react-youtube';
 import { Users, Play, SkipForward, Copy, Check, ArrowLeft, Search, Plus, ThumbsUp, ThumbsDown, Music } from 'lucide-react';
 
@@ -26,6 +26,7 @@ function HostView({ roomCode, socket, setView }) {
   useEffect(() => {
     if (!nowPlaying && queue.length > 0) {
       const nextSong = queue[0];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNowPlaying(nextSong);
       socket.emit('song_ended', { roomCode, queueId: nextSong.queueId });
     }
@@ -52,7 +53,7 @@ function HostView({ roomCode, socket, setView }) {
 
     setIsSearching(true);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:3001`;
       const res = await fetch(`${backendUrl}/api/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (data.results) setSearchResults(data.results);
